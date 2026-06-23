@@ -3,6 +3,7 @@ import requests
 import os
 import pandas as pd
 from datetime import datetime, timedelta
+import time
 
 try:
     from streamlit_calendar import calendar
@@ -79,6 +80,7 @@ def load_custom_events() -> list:
 def save_custom_event(title: str, start_time: str, end_time: str, color: str):
     try:
         payload = {
+            "id": int(time.time() * 1000) % 2147483647,
             "title": title,
             "start_time": start_time,
             "end_time": end_time,
@@ -308,7 +310,11 @@ with st.sidebar:
     st.caption(f"**{done}/{total} days complete ({pct}%)**")
 
     st.divider()
-    selected_month = st.radio("Jump to month", [1, 2, 3, 4], format_func=lambda m: MONTH_TITLES[m])
+    page = st.radio("Navigation", ["📚 98-Day Tracker", "📅 My Schedule & Calendar"])
+
+    st.divider()
+    if page == "📚 98-Day Tracker":
+        selected_month = st.radio("Jump to month", [1, 2, 3, 4], format_func=lambda m: MONTH_TITLES[m])
 
 # ── MAIN TABS ─────────────────────────────────────────────────────────────────
 if "just_completed" in st.session_state:
@@ -327,10 +333,8 @@ if "just_added_event" in st.session_state:
     st.toast("🎉 Custom Event added to Calendar!")
     del st.session_state.just_added_event
 
-tab_tracker, tab_schedule = st.tabs(["📚 98-Day Tracker", "📅 My Schedule & Calendar"])
-
-# ── TAB 1: 98-DAY TRACKER ──
-with tab_tracker:
+# ── PAGE 1: 98-DAY TRACKER ──
+if page == "📚 98-Day Tracker":
     st.title(MONTH_TITLES[selected_month])
 
     # ANALYTICS DASHBOARD
@@ -410,8 +414,8 @@ with tab_tracker:
 
         st.divider()
 
-# ── TAB 2: SCHEDULE & CALENDAR ──
-with tab_schedule:
+# ── PAGE 2: SCHEDULE & CALENDAR ──
+if page == "📅 My Schedule & Calendar":
     st.title("📅 My Study Schedule")
     st.markdown("Structure your week for maximum consistency. Edit the routines below to fit your real life!")
     
