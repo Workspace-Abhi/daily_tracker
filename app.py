@@ -2,6 +2,13 @@ import streamlit as st
 import requests
 import os
 import pandas as pd
+from datetime import datetime, timedelta
+
+try:
+    from streamlit_calendar import calendar
+    HAS_CALENDAR = True
+except ImportError:
+    HAS_CALENDAR = False
 
 st.set_page_config(page_title="DE Interview Prep Plan", page_icon="🚀", layout="wide")
 
@@ -268,22 +275,6 @@ with st.sidebar:
 
     st.divider()
 
-    # ── DAILY ROUTINE FEATURE ──
-    st.markdown("### 📅 Daily Routine Blocker")
-    st.caption("Block your time to stay consistent!")
-    if "routine" not in st.session_state:
-        st.session_state.routine = pd.DataFrame([
-            {"Time": "07:00 - 08:30", "Activity": "Deep Study 🧠"},
-            {"Time": "09:00 - 17:30", "Activity": "Work 🏢"},
-            {"Time": "18:00 - 19:00", "Activity": "Gym / Rest 🏋️‍♂️"},
-            {"Time": "19:00 - 20:00", "Activity": "Light Review 📚"}
-        ])
-
-    edited_routine = st.data_editor(st.session_state.routine, num_rows="dynamic", hide_index=True)
-    st.session_state.routine = edited_routine
-    
-    st.divider()
-
     total = 98
     done  = len(st.session_state.completed)
     pct   = int(done / total * 100) if total else 0
@@ -293,14 +284,10 @@ with st.sidebar:
     st.divider()
     selected_month = st.radio("Jump to month", [1, 2, 3, 4], format_func=lambda m: MONTH_TITLES[m])
 
-
-# ── MAIN ──────────────────────────────────────────────────────────────────────
-st.title(MONTH_TITLES[selected_month])
-
+# ── MAIN TABS ─────────────────────────────────────────────────────────────────
 if "just_completed" in st.session_state:
     dn_completed = st.session_state.just_completed
     st.toast(f"🎉 Awesome work! Day {dn_completed} is in the books.")
-    # Show balloons every 7 days (end of a week)
     if dn_completed % 7 == 0:
         st.balloons()
     del st.session_state.just_completed
@@ -310,81 +297,159 @@ if "db_error" in st.session_state:
     st.info("Tip: If you're getting a 401/403 or empty results, make sure your Supabase table 'progress' exists and has Row Level Security (RLS) disabled, or has appropriate policies set up!")
     del st.session_state.db_error
 
-# ── ANALYTICS DASHBOARD ───────────────────────────────────────────────────────
-st.header("📊 Your Progress Dashboard")
+tab_tracker, tab_schedule = st.tabs(["📚 98-Day Tracker", "📅 My Schedule & Calendar"])
 
-total_days = 98
-completed_count = len(st.session_state.completed)
-completion_pct = int((completed_count / total_days) * 100) if total_days else 0
+# ── TAB 1: 98-DAY TRACKER ──
+with tab_tracker:
+    st.title(MONTH_TITLES[selected_month])
 
-# Calculate Streak
-streak = 0
-if st.session_state.completed:
-    max_day = max(st.session_state.completed)
-    for d in range(max_day, 0, -1):
-        if d in st.session_state.completed:
-            streak += 1
-        else:
-            break
+    # ANALYTICS DASHBOARD
+    st.header("📊 Your Progress Dashboard")
 
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Total Completed", f"{completed_count} / {total_days}")
-col2.metric("Remaining", total_days - completed_count)
-col3.metric("Completion %", f"{completion_pct}%")
-col4.metric("Current Streak", f"🔥 {streak} Days")
+    total_days = 98
+    completed_count = len(st.session_state.completed)
+    completion_pct = int((completed_count / total_days) * 100) if total_days else 0
 
-with st.expander("Show Topic Breakdown Chart 📈"):
-    topic_counts = {}
-    topic_completed = {}
-    for w in plan:
-        for d in w["days"]:
-            t = d["tag"]
-            topic_counts[t] = topic_counts.get(t, 0) + 1
-            if d["day"] in st.session_state.completed:
-                topic_completed[t] = topic_completed.get(t, 0) + 1
-                
-    df = pd.DataFrame({
-        "Topic": list(topic_counts.keys()),
-        "Completed": [topic_completed.get(t, 0) for t in topic_counts.keys()],
-        "Total": [topic_counts.get(t, 0) for t in topic_counts.keys()]
-    })
-    st.bar_chart(df.set_index("Topic")["Completed"])
+    streak = 0
+    if st.session_state.completed:
+        max_day = max(st.session_state.completed)
+        for d in range(max_day, 0, -1):
+            if d in st.session_state.completed:
+                streak += 1
+            else:
+                break
 
-st.divider()
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total Completed", f"{completed_count} / {total_days}")
+    col2.metric("Remaining", total_days - completed_count)
+    col3.metric("Completion %", f"{completion_pct}%")
+    col4.metric("Current Streak", f"🔥 {streak} Days")
 
-weeks_in_month = [w for w in plan if w["month"] == selected_month]
-
-for week in weeks_in_month:
-    week_done = sum(1 for d in week["days"] if d["day"] in st.session_state.completed)
-    st.subheader(f"Week {week['week']} · {week['theme']}  ({week_done}/{len(week['days'])})")
-
-    for day in week["days"]:
-        dn      = day["day"]
-        is_done = dn in st.session_state.completed
-        color   = TAG_COLORS.get(day["tag"], "#6B7280")
-        badge   = f'<span style="background:{color};color:white;padding:2px 10px;border-radius:99px;font-size:11px;font-weight:700;">{day["tag"]}</span>'
-
-        label   = f"~~Day {dn} — {day['topic']}~~" if is_done else f"Day {dn} — {day['topic']}"
-
-        with st.expander(f"{'✅' if is_done else '⬜'} Day {dn} — {day['topic']}"):
-            st.markdown(badge, unsafe_allow_html=True)
-            st.markdown("**Tasks for today:**")
-            for task in day["tasks"]:
-                st.markdown(f"→ {task}")
-            btn_label = "Mark as done ✅" if not is_done else "Mark as incomplete ↩️"
-            if st.button(btn_label, key=f"btn_{dn}"):
-                if not is_done:
-                    st.session_state.just_completed = dn
-                toggle(dn)
-                st.rerun()
-                
-            st.markdown("---")
-            # Interactive Notes
-            current_note = st.session_state.notes.get(dn, "")
-            new_note = st.text_area("📝 Personal Notes / Links", value=current_note, key=f"note_{dn}", placeholder="Paste LeetCode links or personal notes here...")
-            if st.button("Save Note 💾", key=f"save_note_{dn}"):
-                st.session_state.notes[dn] = new_note
-                save_progress(dn, is_done) # Upserts the progress and new note
-                st.toast(f"Notes saved for Day {dn}!")
+    with st.expander("Show Topic Breakdown Chart 📈"):
+        topic_counts = {}
+        topic_completed = {}
+        for w in plan:
+            for d in w["days"]:
+                t = d["tag"]
+                topic_counts[t] = topic_counts.get(t, 0) + 1
+                if d["day"] in st.session_state.completed:
+                    topic_completed[t] = topic_completed.get(t, 0) + 1
+                    
+        df = pd.DataFrame({
+            "Topic": list(topic_counts.keys()),
+            "Completed": [topic_completed.get(t, 0) for t in topic_counts.keys()],
+            "Total": [topic_counts.get(t, 0) for t in topic_counts.keys()]
+        })
+        st.bar_chart(df.set_index("Topic")["Completed"])
 
     st.divider()
+
+    weeks_in_month = [w for w in plan if w["month"] == selected_month]
+
+    for week in weeks_in_month:
+        week_done = sum(1 for d in week["days"] if d["day"] in st.session_state.completed)
+        st.subheader(f"Week {week['week']} · {week['theme']}  ({week_done}/{len(week['days'])})")
+
+        for day in week["days"]:
+            dn      = day["day"]
+            is_done = dn in st.session_state.completed
+            color   = TAG_COLORS.get(day["tag"], "#6B7280")
+            badge   = f'<span style="background:{color};color:white;padding:2px 10px;border-radius:99px;font-size:11px;font-weight:700;">{day["tag"]}</span>'
+
+            label   = f"~~Day {dn} — {day['topic']}~~" if is_done else f"Day {dn} — {day['topic']}"
+
+            with st.expander(f"{'✅' if is_done else '⬜'} Day {dn} — {day['topic']}"):
+                st.markdown(badge, unsafe_allow_html=True)
+                st.markdown("**Tasks for today:**")
+                for task in day["tasks"]:
+                    st.markdown(f"→ {task}")
+                btn_label = "Mark as done ✅" if not is_done else "Mark as incomplete ↩️"
+                if st.button(btn_label, key=f"btn_{dn}"):
+                    if not is_done:
+                        st.session_state.just_completed = dn
+                    toggle(dn)
+                    st.rerun()
+                    
+                st.markdown("---")
+                current_note = st.session_state.notes.get(dn, "")
+                new_note = st.text_area("📝 Personal Notes / Links", value=current_note, key=f"note_{dn}", placeholder="Paste LeetCode links or personal notes here...")
+                if st.button("Save Note 💾", key=f"save_note_{dn}"):
+                    st.session_state.notes[dn] = new_note
+                    save_progress(dn, is_done)
+                    st.toast(f"Notes saved for Day {dn}!")
+
+        st.divider()
+
+# ── TAB 2: SCHEDULE & CALENDAR ──
+with tab_schedule:
+    st.title("📅 My Study Schedule")
+    st.markdown("Structure your week for maximum consistency. Edit the routines below to fit your real life!")
+    
+    if "routine_weekday" not in st.session_state:
+        st.session_state.routine_weekday = pd.DataFrame([
+            {"Time": "07:00 - 08:30", "Activity": "Morning Study 🧠"},
+            {"Time": "09:00 - 17:30", "Activity": "Work 🏢"},
+            {"Time": "18:00 - 19:00", "Activity": "Gym / Rest 🏋️‍♂️"},
+            {"Time": "19:00 - 20:00", "Activity": "Light Review 📚"}
+        ])
+    if "routine_weekend" not in st.session_state:
+        st.session_state.routine_weekend = pd.DataFrame([
+            {"Time": "08:00 - 12:00", "Activity": "Deep Study Block 1 🧠"},
+            {"Time": "12:00 - 14:00", "Activity": "Lunch / Break 🥪"},
+            {"Time": "14:00 - 16:00", "Activity": "Mock Interview / Review 🗣️"},
+            {"Time": "16:00 - 22:00", "Activity": "Free Time & Rest 🎉"}
+        ])
+        
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("💼 Weekday Routine")
+        st.session_state.routine_weekday = st.data_editor(st.session_state.routine_weekday, num_rows="dynamic", hide_index=True, key="wd_editor")
+    with col2:
+        st.subheader("🏖️ Weekend Routine")
+        st.session_state.routine_weekend = st.data_editor(st.session_state.routine_weekend, num_rows="dynamic", hide_index=True, key="we_editor")
+        
+    st.divider()
+    st.subheader("🗓️ Calendar View")
+    
+    if not HAS_CALENDAR:
+        st.warning("⚠️ The interactive calendar plugin is not installed. To see the beautiful full calendar view, please run this command in your terminal:\n\n`pip install streamlit-calendar`\n\nThen refresh this page!")
+    else:
+        # Generate dummy events based on routines
+        calendar_events = []
+        today = datetime.now().date()
+        for i in range(-3, 10):
+            target_date = today + timedelta(days=i)
+            is_weekend = target_date.weekday() >= 5
+            if is_weekend:
+                calendar_events.append({
+                    "title": "Deep Study Block 1",
+                    "start": f"{target_date}T08:00:00",
+                    "end": f"{target_date}T12:00:00",
+                    "color": "#1D4ED8"
+                })
+                calendar_events.append({
+                    "title": "Mock / Review",
+                    "start": f"{target_date}T14:00:00",
+                    "end": f"{target_date}T16:00:00",
+                    "color": "#7E22CE"
+                })
+            else:
+                calendar_events.append({
+                    "title": "Morning Study",
+                    "start": f"{target_date}T07:00:00",
+                    "end": f"{target_date}T08:30:00",
+                    "color": "#15803D"
+                })
+        
+        calendar_options = {
+            "headerToolbar": {
+                "left": "today prev,next",
+                "center": "title",
+                "right": "timeGridWeek,timeGridDay,dayGridMonth",
+            },
+            "initialView": "timeGridWeek",
+            "slotMinTime": "06:00:00",
+            "slotMaxTime": "22:00:00",
+        }
+        
+        calendar(events=calendar_events, options=calendar_options)
