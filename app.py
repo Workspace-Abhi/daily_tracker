@@ -501,56 +501,47 @@ if page == "📅 My Schedule & Calendar":
                             st.session_state.just_deleted_event = True
                             st.rerun()
 
-        # Generate dummy events based on routines
+        # Generate dynamic events based on routines
         calendar_events = []
         today = datetime.now().date()
+        
+        def parse_time_range(t_str):
+            try:
+                parts = str(t_str).split("-")
+                return parts[0].strip(), parts[1].strip()
+            except:
+                return "00:00", "01:00"
+                
         for i in range(-3, 10):
             target_date = today + timedelta(days=i)
             is_weekend = target_date.weekday() >= 5
-            if is_weekend:
-                calendar_events.append({
-                    "title": "Deep Study Block 1",
-                    "start": f"{target_date}T08:00:00",
-                    "end": f"{target_date}T12:00:00",
-                    "color": "#1D4ED8"
-                })
-                calendar_events.append({
-                    "title": "Mock / Review",
-                    "start": f"{target_date}T14:00:00",
-                    "end": f"{target_date}T16:00:00",
-                    "color": "#7E22CE"
-                })
-                calendar_events.append({
-                    "title": "Cooking & Resting",
-                    "start": f"{target_date}T19:30:00",
-                    "end": f"{target_date}T21:00:00",
-                    "color": "#D97706"
-                })
-            else:
-                calendar_events.append({
-                    "title": "Morning Study",
-                    "start": f"{target_date}T07:00:00",
-                    "end": f"{target_date}T09:00:00",
-                    "color": "#15803D"
-                })
-                calendar_events.append({
-                    "title": "Office",
-                    "start": f"{target_date}T09:30:00",
-                    "end": f"{target_date}T19:30:00",
-                    "color": "#4B5563"
-                })
-                calendar_events.append({
-                    "title": "Cooking & Resting",
-                    "start": f"{target_date}T19:30:00",
-                    "end": f"{target_date}T21:00:00",
-                    "color": "#D97706"
-                })
-                calendar_events.append({
-                    "title": "Evening Review",
-                    "start": f"{target_date}T21:00:00",
-                    "end": f"{target_date}T22:30:00",
-                    "color": "#15803D"
-                })
+            
+            routine_df = st.session_state.routine_weekend_v2 if is_weekend else st.session_state.routine_weekday_v2
+            
+            for _, row in routine_df.iterrows():
+                t_str = str(row.get("Time", ""))
+                activity = str(row.get("Activity", ""))
+                if t_str.strip() and activity.strip() and activity != "nan":
+                    start_t, end_t = parse_time_range(t_str)
+                    
+                    # Assign colors based on keywords
+                    event_color = "#15803D" # default green
+                    act_lower = activity.lower()
+                    if "office" in act_lower or "work" in act_lower:
+                        event_color = "#4B5563"
+                    elif "cook" in act_lower or "lunch" in act_lower:
+                        event_color = "#D97706"
+                    elif "deep" in act_lower or "rest" in act_lower or "free" in act_lower:
+                        event_color = "#1D4ED8"
+                    elif "mock" in act_lower:
+                        event_color = "#7E22CE"
+                    
+                    calendar_events.append({
+                        "title": activity,
+                        "start": f"{target_date}T{start_t}:00",
+                        "end": f"{target_date}T{end_t}:00",
+                        "color": event_color
+                    })
 
         # Add custom events from Supabase
         for ev in db_events:
