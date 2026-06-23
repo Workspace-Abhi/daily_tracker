@@ -15,26 +15,39 @@ HEADERS = {
 }
 
 def load_progress() -> set:
-    res = requests.get(
-        f"{SUPABASE_URL}/rest/v1/progress?select=day_num",
-        headers=HEADERS
-    )
-    if res.status_code == 200:
-        return set(row["day_num"] for row in res.json())
+    try:
+        res = requests.get(
+            f"{SUPABASE_URL}/rest/v1/progress?select=day_num",
+            headers=HEADERS
+        )
+        if res.status_code == 200:
+            return set(row["day_num"] for row in res.json())
+        else:
+            st.session_state.db_error = f"GET Error {res.status_code}: {res.text}"
+    except Exception as e:
+        st.session_state.db_error = f"GET Request Failed: {e}"
     return set()
 
 def save_progress(day_num: int, completed: bool):
-    if completed:
-        requests.post(
-            f"{SUPABASE_URL}/rest/v1/progress",
-            headers=HEADERS,
-            json={"day_num": day_num, "completed": True}
-        )
-    else:
-        requests.delete(
-            f"{SUPABASE_URL}/rest/v1/progress?day_num=eq.{day_num}",
-            headers=HEADERS
-        )
+    try:
+        if completed:
+            res = requests.post(
+                f"{SUPABASE_URL}/rest/v1/progress",
+                headers=HEADERS,
+                json={"day_num": day_num, "completed": True}
+            )
+            if res.status_code not in (200, 201, 204):
+                st.session_state.db_error = f"POST Error {res.status_code}: {res.text}"
+        else:
+            res = requests.delete(
+                f"{SUPABASE_URL}/rest/v1/progress?day_num=eq.{day_num}",
+                headers=HEADERS
+            )
+            if res.status_code not in (200, 201, 204):
+                st.session_state.db_error = f"DELETE Error {res.status_code}: {res.text}"
+    except Exception as e:
+        st.session_state.db_error = f"Save Request Failed: {e}"
+
 
 # ── DATA ──────────────────────────────────────────────────────────────────────
 plan = [
@@ -258,6 +271,11 @@ with st.sidebar:
 
 # ── MAIN ──────────────────────────────────────────────────────────────────────
 st.title(MONTH_TITLES[selected_month])
+
+if "db_error" in st.session_state:
+    st.error(f"Supabase Database Error: {st.session_state.db_error}")
+    st.info("Tip: If you're getting a 401/403 or empty results, make sure your Supabase table 'progress' exists and has Row Level Security (RLS) disabled, or has appropriate policies set up!")
+    del st.session_state.db_error
 
 weeks_in_month = [w for w in plan if w["month"] == selected_month]
 
