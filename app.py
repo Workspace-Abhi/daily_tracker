@@ -201,7 +201,8 @@ MONTH_TITLES = {
 
 # ── SESSION STATE ─────────────────────────────────────────────────────────────
 
-st.session_state.completed = load_progress()
+if "completed" not in st.session_state:
+    st.session_state.completed = load_progress()
 
 def toggle(day_num):
     if day_num in st.session_state.completed:
