@@ -272,6 +272,14 @@ with st.sidebar:
 # ── MAIN ──────────────────────────────────────────────────────────────────────
 st.title(MONTH_TITLES[selected_month])
 
+if "just_completed" in st.session_state:
+    dn_completed = st.session_state.just_completed
+    st.toast(f"🎉 Awesome work! Day {dn_completed} is in the books.")
+    # Show balloons every 7 days (end of a week)
+    if dn_completed % 7 == 0:
+        st.balloons()
+    del st.session_state.just_completed
+
 if "db_error" in st.session_state:
     st.error(f"Supabase Database Error: {st.session_state.db_error}")
     st.info("Tip: If you're getting a 401/403 or empty results, make sure your Supabase table 'progress' exists and has Row Level Security (RLS) disabled, or has appropriate policies set up!")
@@ -298,6 +306,8 @@ for week in weeks_in_month:
                 st.markdown(f"→ {task}")
             btn_label = "Mark as done ✅" if not is_done else "Mark as incomplete ↩️"
             if st.button(btn_label, key=f"btn_{dn}"):
+                if not is_done:
+                    st.session_state.just_completed = dn
                 toggle(dn)
                 st.rerun()
 
