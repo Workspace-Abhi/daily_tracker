@@ -497,11 +497,13 @@ with tab_schedule:
             "headerToolbar": {
                 "left": "today prev,next",
                 "center": "title",
-                "right": "timeGridWeek,timeGridDay,dayGridMonth",
+                "right": "dayGridMonth,timeGridWeek,timeGridDay",
             },
-            "initialView": "timeGridWeek",
-            "slotMinTime": "06:00:00",
-            "slotMaxTime": "22:00:00",
+            "initialView": "dayGridMonth",
         }
         
-        calendar(events=calendar_events, options=calendar_options)
+        st.caption(f"Loaded {len(calendar_events)} events into the calendar engine...")
+        try:
+            cal_result = calendar(events=calendar_events, options=calendar_options, key="main_calendar")
+        except Exception as e:
+            st.error(f"Calendar component crashed: {e}")
