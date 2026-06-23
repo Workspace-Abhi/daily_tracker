@@ -1,8 +1,9 @@
 import streamlit as st
 import requests
 import os
+import pandas as pd
 
-st.set_page_config(page_title="DE Interview Prep Plan", page_icon="🚀", layout="centered")
+st.set_page_config(page_title="DE Interview Prep Plan", page_icon="🚀", layout="wide")
 
 # ── SUPABASE CONFIG ───────────────────────────────────────────────────────────
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
@@ -22,11 +23,10 @@ def load_progress() -> tuple[set, dict]:
         )
         if res.status_code == 200:
             data = res.json()
-            completed = set(row["day_num"] for row in data if row.get("completed", True)) # default True for older rows
+            completed = set(row["day_num"] for row in data if row.get("completed", True)) 
             notes = {row["day_num"]: row.get("notes", "") for row in data if row.get("notes")}
             return completed, notes
         else:
-            # Fallback if notes column doesn't exist yet
             res2 = requests.get(f"{SUPABASE_URL}/rest/v1/progress?select=day_num", headers=HEADERS)
             if res2.status_code == 200:
                 return set(row["day_num"] for row in res2.json()), {}
@@ -47,7 +47,6 @@ def save_progress(day_num: int, completed: bool):
             json=payload
         )
         if res.status_code not in (200, 201, 204):
-            # Fallback: Try saving without notes if notes column is missing
             if "notes" in payload:
                 del payload["notes"]
                 res2 = requests.post(f"{SUPABASE_URL}/rest/v1/progress", headers=HEADERS, json=payload)
@@ -58,142 +57,140 @@ def save_progress(day_num: int, completed: bool):
     except Exception as e:
         st.session_state.db_error = f"Save Request Failed: {e}"
 
-
-
-# ── DATA ──────────────────────────────────────────────────────────────────────
+# ── DATA (2 YOE PREMIUM CURRICULUM) ───────────────────────────────────────────
 plan = [
     # MONTH 1
-    {"week": 1, "month": 1, "theme": "SQL — Intermediate to Advanced", "days": [
-        {"day": 1,  "topic": "SQL Recap — JOINs deep dive",        "tag": "SQL",      "tasks": ["INNER, LEFT, RIGHT, FULL OUTER joins", "Practice 10 JOIN problems on LeetCode"]},
-        {"day": 2,  "topic": "Window Functions Part 1",             "tag": "SQL",      "tasks": ["ROW_NUMBER, RANK, DENSE_RANK", "PARTITION BY + ORDER BY logic", "Solve 5 problems"]},
-        {"day": 3,  "topic": "Window Functions Part 2",             "tag": "SQL",      "tasks": ["LAG, LEAD, FIRST_VALUE, LAST_VALUE", "Running totals, moving averages", "Solve 5 problems"]},
-        {"day": 4,  "topic": "Aggregations & Grouping",             "tag": "SQL",      "tasks": ["GROUP BY, HAVING, ROLLUP, CUBE", "Nested aggregations", "Solve 5 problems"]},
-        {"day": 5,  "topic": "Subqueries & CTEs",                   "tag": "SQL",      "tasks": ["Correlated subqueries", "WITH clause (CTEs)", "Refactor subqueries into CTEs"]},
-        {"day": 6,  "topic": "Practice Day",                        "tag": "Practice", "tasks": ["Solve 10 mixed SQL problems", "Focus on problems you got wrong this week"]},
-        {"day": 7,  "topic": "Rest / Light Review",                 "tag": "Rest",     "tasks": ["Review notes from Week 1", "Watch 1 YouTube video on SQL optimization"]},
+    {"week": 1, "month": 1, "theme": "Advanced SQL & Query Optimization", "days": [
+        {"day": 1,  "topic": "Query Execution Plans",               "tag": "SQL",      "tasks": ["Understand EXPLAIN / EXPLAIN ANALYZE", "Scan types (Index, Seq, Bitmap)", "Identify bottlenecks"]},
+        {"day": 2,  "topic": "Advanced Indexing",                   "tag": "SQL",      "tasks": ["B-Tree vs Hash vs GiST", "Composite & Covering Indexes", "Solve 3 hard LeetCode problems"]},
+        {"day": 3,  "topic": "Window Functions Deep Dive",          "tag": "SQL",      "tasks": ["Advanced framing (ROWS BETWEEN)", "Gaps and Islands problem", "Solve 5 problems"]},
+        {"day": 4,  "topic": "Concurrency & Locking",               "tag": "SQL",      "tasks": ["Row-level vs Table-level locks", "Deadlocks", "Transaction Isolation Levels (ACID)"]},
+        {"day": 5,  "topic": "Query Tuning Scenarios",              "tag": "SQL",      "tasks": ["Rewrite correlated subqueries to JOINs", "Optimize GROUP BY memory", "Review material"]},
+        {"day": 6,  "topic": "Practice Day",                        "tag": "Practice", "tasks": ["Solve 5 hard StrataScratch SQL problems"]},
+        {"day": 7,  "topic": "Rest / Review",                       "tag": "Rest",     "tasks": ["Review weak spots", "Prepare for Python week"]},
     ]},
-    {"week": 2, "month": 1, "theme": "SQL — Optimization + Python Basics", "days": [
-        {"day": 8,  "topic": "Query Optimization",                  "tag": "SQL",      "tasks": ["Indexes — what, why, when", "EXPLAIN / EXPLAIN ANALYZE", "Avoid SELECT *"]},
-        {"day": 9,  "topic": "Advanced SQL Patterns",               "tag": "SQL",      "tasks": ["Pivot tables in SQL", "Gap and island problems", "Solve 5 tricky problems"]},
-        {"day": 10, "topic": "Python — Data Structures",            "tag": "Python",   "tasks": ["Lists, dicts, sets, tuples", "List comprehensions", "Write 10 small functions"]},
-        {"day": 11, "topic": "Python — Functions & OOP Basics",     "tag": "Python",   "tasks": ["*args, **kwargs", "Classes and objects basics", "Write a simple data class"]},
-        {"day": 12, "topic": "Python — File I/O & Error Handling",  "tag": "Python",   "tasks": ["Read/write CSV, JSON", "Try/except patterns", "Practice with real datasets"]},
-        {"day": 13, "topic": "Practice Day",                        "tag": "Practice", "tasks": ["5 SQL + 5 Python problems", "Mix of easy/medium difficulty"]},
-        {"day": 14, "topic": "Rest / Light Review",                 "tag": "Rest",     "tasks": ["Review weak areas", "Plan next week"]},
+    {"week": 2, "month": 1, "theme": "Python for Data Pipelines", "days": [
+        {"day": 8,  "topic": "OOP in Data Engineering",             "tag": "Python",   "tasks": ["Design a modular ETL class", "Inheritance & Polymorphism", "Mixins"]},
+        {"day": 9,  "topic": "Generators & Memory Profiling",       "tag": "Python",   "tasks": ["yield keyword", "Handling 10GB files in 1GB RAM", "Use memory_profiler"]},
+        {"day": 10, "topic": "Concurrency in Python",               "tag": "Python",   "tasks": ["Multiprocessing vs Multithreading", "asyncio basics", "When to use which"]},
+        {"day": 11, "topic": "Advanced Pandas & Vectorization",     "tag": "Python",   "tasks": ["Avoid apply(), use vectorization", "Pandas memory optimization (categoricals)", "Chunking"]},
+        {"day": 12, "topic": "Testing Data Pipelines",              "tag": "Python",   "tasks": ["pytest basics", "Mocking database connections", "Write tests for your ETL class"]},
+        {"day": 13, "topic": "Practice Day",                        "tag": "Practice", "tasks": ["Build a multi-threaded web scraper/ingestor", "Write unit tests for it"]},
+        {"day": 14, "topic": "Rest / Review",                       "tag": "Rest",     "tasks": ["Review Python notes"]},
     ]},
-    {"week": 3, "month": 1, "theme": "Python — Pandas & Pipeline Thinking", "days": [
-        {"day": 15, "topic": "Pandas Part 1",                       "tag": "Python",   "tasks": ["DataFrames, Series", "read_csv, head, describe, info", "Filtering and selecting"]},
-        {"day": 16, "topic": "Pandas Part 2",                       "tag": "Python",   "tasks": ["groupby, merge, join", "apply, map, lambda", "Handle missing values"]},
-        {"day": 17, "topic": "Pandas Part 3",                       "tag": "Python",   "tasks": ["Pivot tables in Pandas", "Time series basics", "Solve 5 Pandas exercises"]},
-        {"day": 18, "topic": "Writing Clean Pipelines",             "tag": "Python",   "tasks": ["Modular functions for ETL", "Logging basics", "Write a mini ETL script"]},
-        {"day": 19, "topic": "Python + SQL Together",               "tag": "Python",   "tasks": ["Connect Python to DB (sqlite3 / sqlalchemy)", "Run queries from Python", "Build a simple pipeline"]},
-        {"day": 20, "topic": "Practice Day",                        "tag": "Practice", "tasks": ["Build end-to-end mini pipeline", "CSV → transform → output"]},
-        {"day": 21, "topic": "Rest / Light Review",                 "tag": "Rest",     "tasks": ["Review Python notes", "Skim one DE blog post"]},
+    {"week": 3, "month": 1, "theme": "Data Modeling for Scale", "days": [
+        {"day": 15, "topic": "Kimball Deep Dive",                   "tag": "Modeling", "tasks": ["Factless Fact tables", "Accumulating Snapshot tables", "Conformed Dimensions"]},
+        {"day": 16, "topic": "Advanced SCDs",                       "tag": "Modeling", "tasks": ["SCD Type 4 & 6", "Handling late-arriving dimensions", "Implement SCD logic in SQL"]},
+        {"day": 17, "topic": "Modern Data Stack Modeling",          "tag": "Modeling", "tasks": ["dbt modeling conventions (staging, intermediate, mart)", "Wide tables vs Star Schema"]},
+        {"day": 18, "topic": "Data Vault 2.0",                      "tag": "Modeling", "tasks": ["Hubs, Links, Satellites design", "When to choose Data Vault over Kimball"]},
+        {"day": 19, "topic": "NoSQL Modeling",                      "tag": "Modeling", "tasks": ["Cassandra/DynamoDB modeling patterns", "Partition/Sort keys", "Wide-column vs Document"]},
+        {"day": 20, "topic": "Practice Day",                        "tag": "Practice", "tasks": ["Design schema for an Uber-like app", "Design schema for a social network feed"]},
+        {"day": 21, "topic": "Rest / Review",                       "tag": "Rest",     "tasks": ["Review Month 1 concepts"]},
     ]},
-    {"week": 4, "month": 1, "theme": "SQL Mock + Python Review", "days": [
-        {"day": 22, "topic": "SQL Mock Interview",                  "tag": "Mock",     "tasks": ["Simulate 45-min SQL round", "Use StrataScratch or LeetCode"]},
-        {"day": 23, "topic": "Review SQL Mistakes",                 "tag": "SQL",      "tasks": ["Fix every wrong answer from mock", "Re-solve with explanation"]},
-        {"day": 24, "topic": "Python Mock Interview",               "tag": "Mock",     "tasks": ["Simulate coding round", "Focus on pandas + functions"]},
-        {"day": 25, "topic": "Review Python Mistakes",              "tag": "Python",   "tasks": ["Fix every wrong answer", "Re-write clean versions"]},
-        {"day": 26, "topic": "Month 1 Recap",                       "tag": "Review",   "tasks": ["List top 10 things you learned", "Note what still feels weak"]},
-        {"day": 27, "topic": "Practice Day",                        "tag": "Practice", "tasks": ["10 mixed problems — SQL + Python", "Time yourself"]},
-        {"day": 28, "topic": "Rest",                                "tag": "Rest",     "tasks": ["Full rest or light reading", "Don't study — recharge!"]},
+    {"week": 4, "month": 1, "theme": "Month 1 Mocks", "days": [
+        {"day": 22, "topic": "Advanced SQL Mock",                   "tag": "Mock",     "tasks": ["45-min timed session", "Focus on window functions and performance"]},
+        {"day": 23, "topic": "Review SQL Mock",                     "tag": "Review",   "tasks": ["Identify syntax issues or logic gaps", "Re-solve with optimal execution plan"]},
+        {"day": 24, "topic": "Python / ETL Mock",                   "tag": "Mock",     "tasks": ["45-min timed session: Write an ETL parser in Python", "Focus on modularity and memory"]},
+        {"day": 25, "topic": "Review Python Mock",                  "tag": "Review",   "tasks": ["Refactor code for PEP8", "Add docstrings and type hints"]},
+        {"day": 26, "topic": "Data Modeling Mock",                  "tag": "Mock",     "tasks": ["45-min timed session: Schema design", "Draw on whiteboard/excalidraw"]},
+        {"day": 27, "topic": "Month 1 Recap",                       "tag": "Review",   "tasks": ["List 5 key takeaways", "Identify weak areas to review on weekends"]},
+        {"day": 28, "topic": "Rest",                                "tag": "Rest",     "tasks": ["Full rest!"]},
     ]},
 
     # MONTH 2
-    {"week": 5, "month": 2, "theme": "Data Modeling Fundamentals", "days": [
-        {"day": 29, "topic": "Star Schema & Snowflake Schema",      "tag": "Modeling", "tasks": ["Fact vs Dimension tables", "When to use which", "Design a sample schema"]},
-        {"day": 30, "topic": "Normalization",                       "tag": "Modeling", "tasks": ["1NF, 2NF, 3NF explained", "When to denormalize", "Practice normalization exercises"]},
-        {"day": 31, "topic": "Slowly Changing Dimensions (SCD)",    "tag": "Modeling", "tasks": ["SCD Type 1, 2, 3", "When to use each", "Implement SCD Type 2 example"]},
-        {"day": 32, "topic": "Data Vault Basics",                   "tag": "Modeling", "tasks": ["Hubs, Links, Satellites", "Compare vs Star Schema", "Read 1 article on Data Vault"]},
-        {"day": 33, "topic": "Modeling Practice",                   "tag": "Practice", "tasks": ["Design schema for e-commerce", "Design schema for ride-sharing app"]},
-        {"day": 34, "topic": "Practice Day",                        "tag": "Practice", "tasks": ["Review and refine your schemas", "Get feedback on design choices"]},
-        {"day": 35, "topic": "Rest / Light Review",                 "tag": "Rest",     "tasks": ["Review week notes", "Sketch one more schema"]},
+    {"week": 5, "month": 2, "theme": "Big Data & Spark Architecture", "days": [
+        {"day": 29, "topic": "Spark Internals",                     "tag": "Spark",    "tasks": ["Driver, Executors, Tasks, Stages", "DAG visualization", "Lazy Evaluation mechanics"]},
+        {"day": 30, "topic": "Shuffling & Partitioning",            "tag": "Spark",    "tasks": ["Hash vs Range partitioning", "repartition vs coalesce", "Managing data skew"]},
+        {"day": 31, "topic": "Advanced Spark Optimization",         "tag": "Spark",    "tasks": ["Broadcast joins", "AQE (Adaptive Query Execution)", "Salting for skewed joins"]},
+        {"day": 32, "topic": "Spark Memory Management",             "tag": "Spark",    "tasks": ["Execution vs Storage memory", "Spilling to disk", "Garbage collection tuning basics"]},
+        {"day": 33, "topic": "PySpark Practice",                    "tag": "Practice", "tasks": ["Write a script to aggregate 10M rows", "Apply broadcast joins", "Optimize execution"]},
+        {"day": 34, "topic": "Practice Day",                        "tag": "Practice", "tasks": ["Solve 3 complex PySpark transformations", "Use Window functions in PySpark"]},
+        {"day": 35, "topic": "Rest / Review",                       "tag": "Rest",     "tasks": ["Review Spark concepts"]},
     ]},
-    {"week": 6, "month": 2, "theme": "Pipeline System Design", "days": [
-        {"day": 36, "topic": "Batch vs Streaming",                  "tag": "Design",   "tasks": ["When to use each", "Lambda architecture", "Kappa architecture"]},
-        {"day": 37, "topic": "ETL vs ELT",                          "tag": "Design",   "tasks": ["Differences and trade-offs", "Modern data stack (dbt)", "Design an ELT pipeline"]},
-        {"day": 38, "topic": "Data Warehouses",                     "tag": "Design",   "tasks": ["Redshift vs BigQuery vs Snowflake", "Partitioning and clustering", "Read comparison article"]},
-        {"day": 39, "topic": "Data Lakes & Lakehouses",             "tag": "Design",   "tasks": ["S3 / GCS as data lake", "Delta Lake / Iceberg basics", "When lake vs warehouse"]},
-        {"day": 40, "topic": "Orchestration Tools",                 "tag": "Design",   "tasks": ["Airflow — DAGs, operators, sensors", "Understand scheduling basics", "Draw a pipeline with Airflow"]},
-        {"day": 41, "topic": "System Design Practice",              "tag": "Practice", "tasks": ["Design a ride-sharing data pipeline", "Think: ingestion → storage → serving"]},
-        {"day": 42, "topic": "Rest / Light Review",                 "tag": "Rest",     "tasks": ["Review week notes", "Watch 1 system design video"]},
+    {"week": 6, "month": 2, "theme": "Data Lakes & Open Table Formats", "days": [
+        {"day": 36, "topic": "Data Lake Architecture",              "tag": "Cloud",    "tasks": ["S3/GCS partition strategies", "Parquet vs ORC vs Avro internals", "Columnar advantages"]},
+        {"day": 37, "topic": "Delta Lake / Iceberg",                "tag": "Cloud",    "tasks": ["ACID in Data Lakes", "Time travel & Z-Ordering", "Read architecture comparison"]},
+        {"day": 38, "topic": "Cloud Data Warehouses",               "tag": "Cloud",    "tasks": ["Snowflake vs BigQuery architecture", "Compute vs Storage separation", "Clustering keys"]},
+        {"day": 39, "topic": "dbt (Data Build Tool)",               "tag": "Cloud",    "tasks": ["dbt macros & jinja", "Materialization strategies", "dbt tests and documentation"]},
+        {"day": 40, "topic": "Lakehouse Design",                    "tag": "Design",   "tasks": ["Design a medallion architecture (Bronze, Silver, Gold)", "Trade-offs vs pure DWH"]},
+        {"day": 41, "topic": "Practice Day",                        "tag": "Practice", "tasks": ["Set up a dummy dbt project locally", "Write 2 models and 1 macro"]},
+        {"day": 42, "topic": "Rest / Review",                       "tag": "Rest",     "tasks": ["Review Lakehouse architecture"]},
     ]},
-    {"week": 7, "month": 2, "theme": "Spark + Cloud Basics", "days": [
-        {"day": 43, "topic": "Spark Fundamentals",                  "tag": "Spark",    "tasks": ["RDD vs DataFrame vs Dataset", "Transformations vs Actions", "Read Spark architecture overview"]},
-        {"day": 44, "topic": "PySpark Basics",                      "tag": "Spark",    "tasks": ["SparkSession, read/write", "select, filter, groupBy", "Write 3 PySpark scripts"]},
-        {"day": 45, "topic": "Spark Optimization",                  "tag": "Spark",    "tasks": ["Partitioning, caching, broadcast", "Avoid data skew", "Review common bottlenecks"]},
-        {"day": 46, "topic": "Cloud — Your Primary Cloud",          "tag": "Cloud",    "tasks": ["Focus on cloud you use at work", "Key services: storage, compute, orchestration"]},
-        {"day": 47, "topic": "Cloud — Data Services Deep Dive",     "tag": "Cloud",    "tasks": ["Glue / Dataflow / Data Factory", "S3 / GCS / ADLS", "Redshift / BigQuery / Synapse"]},
-        {"day": 48, "topic": "Practice Day",                        "tag": "Practice", "tasks": ["Design a cloud-native pipeline", "Combine Spark + Cloud services"]},
-        {"day": 49, "topic": "Rest / Light Review",                 "tag": "Rest",     "tasks": ["Review all of Month 2", "Note gaps to fill in Month 3"]},
+    {"week": 7, "month": 2, "theme": "Streaming & Real-Time Data", "days": [
+        {"day": 43, "topic": "Kafka Internals",                     "tag": "Kafka",    "tasks": ["Topics, Partitions, Brokers", "Consumer Groups & Offsets", "Exactly-once semantics"]},
+        {"day": 44, "topic": "Stream Processing Frameworks",        "tag": "Kafka",    "tasks": ["Spark Structured Streaming vs Flink", "Micro-batch vs Continuous processing"]},
+        {"day": 45, "topic": "Windows & Watermarks",                "tag": "Kafka",    "tasks": ["Tumbling, Hopping, Session windows", "Handling late data with watermarks"]},
+        {"day": 46, "topic": "CDC (Change Data Capture)",           "tag": "Kafka",    "tasks": ["Debezium architecture", "Log-based vs Query-based CDC", "Design a CDC pipeline"]},
+        {"day": 47, "topic": "Real-Time Databases",                 "tag": "Design",   "tasks": ["Druid / ClickHouse / Pinot basics", "When to use OLAP databases for real-time"]},
+        {"day": 48, "topic": "Practice Day",                        "tag": "Practice", "tasks": ["Design a real-time fraud detection pipeline", "Map out components and latencies"]},
+        {"day": 49, "topic": "Rest / Review",                       "tag": "Rest",     "tasks": ["Review Streaming concepts"]},
     ]},
     {"week": 8, "month": 2, "theme": "System Design Mock + Review", "days": [
-        {"day": 50, "topic": "System Design Mock 1",                "tag": "Mock",     "tasks": ["Design: real-time analytics pipeline", "45-minute timed session", "Write down your design"]},
-        {"day": 51, "topic": "Review System Design Mock 1",         "tag": "Review",   "tasks": ["Compare with best practices", "Fix gaps in your design"]},
-        {"day": 52, "topic": "System Design Mock 2",                "tag": "Mock",     "tasks": ["Design: data platform for fintech", "Focus on reliability + scalability"]},
-        {"day": 53, "topic": "Review System Design Mock 2",         "tag": "Review",   "tasks": ["Improve your design", "Practice explaining out loud"]},
-        {"day": 54, "topic": "Month 2 Recap",                       "tag": "Review",   "tasks": ["List top 10 things learned", "Identify weak spots"]},
-        {"day": 55, "topic": "Practice Day",                        "tag": "Practice", "tasks": ["Mixed practice: SQL + Design", "Timed, interview conditions"]},
-        {"day": 56, "topic": "Rest",                                "tag": "Rest",     "tasks": ["Full rest", "You're halfway there!"]},
+        {"day": 50, "topic": "System Design Mock 1",                "tag": "Mock",     "tasks": ["Design an event tracking system for a global app", "45-minute timed session"]},
+        {"day": 51, "topic": "Review System Design Mock 1",         "tag": "Review",   "tasks": ["Evaluate scalability, fault tolerance, cost", "Identify single points of failure"]},
+        {"day": 52, "topic": "System Design Mock 2",                "tag": "Mock",     "tasks": ["Design a real-time leaderboards system", "Focus on streaming and state management"]},
+        {"day": 53, "topic": "Review System Design Mock 2",         "tag": "Review",   "tasks": ["Refine your diagram", "Practice explaining trade-offs aloud"]},
+        {"day": 54, "topic": "Month 2 Recap",                       "tag": "Review",   "tasks": ["List top 5 Big Data takeaways", "Identify weak spots in Streaming/Spark"]},
+        {"day": 55, "topic": "Practice Day",                        "tag": "Practice", "tasks": ["Mixed practice: SQL + Spark Optimization", "Timed conditions"]},
+        {"day": 56, "topic": "Rest",                                "tag": "Rest",     "tasks": ["Full rest", "You are halfway there!"]},
     ]},
 
     # MONTH 3
-    {"week": 9, "month": 3, "theme": "DSA Basics for DE Interviews", "days": [
-        {"day": 57, "topic": "Arrays & Strings",                    "tag": "DSA",      "tasks": ["Two pointers", "Sliding window", "Solve 5 easy/medium problems"]},
-        {"day": 58, "topic": "HashMaps & Sets",                     "tag": "DSA",      "tasks": ["Frequency counters", "Two sum pattern", "Solve 5 problems"]},
-        {"day": 59, "topic": "Sorting & Searching",                 "tag": "DSA",      "tasks": ["Binary search", "Merge sort concept", "Solve 5 problems"]},
-        {"day": 60, "topic": "Stack & Queue",                       "tag": "DSA",      "tasks": ["Stack use cases", "Queue / deque", "Solve 5 problems"]},
-        {"day": 61, "topic": "Recursion Basics",                    "tag": "DSA",      "tasks": ["Think recursively", "Factorial, fibonacci", "Solve 3 recursion problems"]},
-        {"day": 62, "topic": "Practice Day",                        "tag": "Practice", "tasks": ["10 DSA problems — mixed topics", "Focus on patterns not memorization"]},
-        {"day": 63, "topic": "Rest / Light Review",                 "tag": "Rest",     "tasks": ["Review DSA patterns", "Rest your brain"]},
+    {"week": 9, "month": 3, "theme": "Orchestration & DevOps", "days": [
+        {"day": 57, "topic": "Advanced Airflow",                    "tag": "DevOps",   "tasks": ["Custom Operators & Hooks", "XComs vs external storage", "Dynamic DAG generation"]},
+        {"day": 58, "topic": "Airflow Architecture",                "tag": "DevOps",   "tasks": ["Scheduler, Webserver, Workers", "Celery vs Kubernetes executor"]},
+        {"day": 59, "topic": "Data Quality & Governance",           "tag": "DevOps",   "tasks": ["Great Expectations / Soda basics", "Data lineage (DataHub)", "Handling PII"]},
+        {"day": 60, "topic": "Docker & Containers",                 "tag": "DevOps",   "tasks": ["Write a Dockerfile for an ETL app", "Docker Compose for local testing"]},
+        {"day": 61, "topic": "CI/CD & Infrastructure as Code",      "tag": "DevOps",   "tasks": ["GitHub Actions for data pipelines", "Terraform basics (S3 bucket, IAM roles)"]},
+        {"day": 62, "topic": "Practice Day",                        "tag": "Practice", "tasks": ["Write a CI/CD yaml to run dbt/pytest", "Deploy dummy Airflow DAG"]},
+        {"day": 63, "topic": "Rest / Review",                       "tag": "Rest",     "tasks": ["Review DevOps concepts"]},
     ]},
-    {"week": 10, "month": 3, "theme": "Full Mock Interview Week", "days": [
-        {"day": 64, "topic": "Mock Round 1 — SQL",                  "tag": "Mock",     "tasks": ["Full 45-min SQL interview", "Record yourself if possible", "Review after"]},
-        {"day": 65, "topic": "Mock Round 2 — Python/DSA",           "tag": "Mock",     "tasks": ["Full 45-min coding round", "Explain your thinking out loud"]},
-        {"day": 66, "topic": "Mock Round 3 — System Design",        "tag": "Mock",     "tasks": ["Full 45-min design round", "Draw diagrams, explain trade-offs"]},
-        {"day": 67, "topic": "Review All 3 Mocks",                  "tag": "Review",   "tasks": ["List mistakes from each round", "Prioritize top 3 things to fix"]},
-        {"day": 68, "topic": "Fix Weak Areas",                      "tag": "Review",   "tasks": ["Deep dive on biggest gaps", "Re-solve problems you got wrong"]},
-        {"day": 69, "topic": "Practice Day",                        "tag": "Practice", "tasks": ["Re-do one mock from this week", "Aim to improve on previous score"]},
-        {"day": 70, "topic": "Rest",                                "tag": "Rest",     "tasks": ["Full rest", "No screens if possible!"]},
+    {"week": 10, "month": 3, "theme": "Senior System Design Concepts", "days": [
+        {"day": 64, "topic": "Scalability Patterns",                "tag": "Design",   "tasks": ["Vertical vs Horizontal scaling", "Load balancing", "Caching strategies (Redis/Memcached)"]},
+        {"day": 65, "topic": "Distributed Systems",                 "tag": "Design",   "tasks": ["CAP Theorem", "PACELC Theorem", "Consistency models (Eventual vs Strong)"]},
+        {"day": 66, "topic": "Fault Tolerance",                     "tag": "Design",   "tasks": ["Retries with Exponential Backoff", "Dead Letter Queues (DLQ)", "Circuit Breakers"]},
+        {"day": 67, "topic": "Cost Optimization",                   "tag": "Design",   "tasks": ["Spot instances", "Lifecycle rules (S3)", "Serverless vs Provisioned compute"]},
+        {"day": 68, "topic": "Security & Networking",               "tag": "Design",   "tasks": ["VPCs, Subnets, Security Groups", "Encryption at rest vs in transit", "IAM best practices"]},
+        {"day": 69, "topic": "Practice Day",                        "tag": "Practice", "tasks": ["Redesign an existing pipeline at work for 10x scale", "Document trade-offs"]},
+        {"day": 70, "topic": "Rest",                                "tag": "Rest",     "tasks": ["Rest your brain!"]},
     ]},
-    {"week": 11, "month": 3, "theme": "Behavioral + Company Research", "days": [
-        {"day": 71, "topic": "Behavioral Interview Prep",           "tag": "Behavioral","tasks": ["Write STAR answers for 10 questions", "Tell me about yourself — practice 3 versions"]},
-        {"day": 72, "topic": "Behavioral Practice",                 "tag": "Behavioral","tasks": ["Practice out loud for 30 mins", "Record and review yourself"]},
-        {"day": 73, "topic": "Research Target Companies",           "tag": "Research",  "tasks": ["List 10 companies you want to apply to", "Note their tech stack and team size"]},
-        {"day": 74, "topic": "Resume Polish",                       "tag": "Resume",    "tasks": ["Quantify every bullet point", "Tailor resume for DE roles", "Get 1 person to review it"]},
-        {"day": 75, "topic": "LinkedIn + Profile Optimization",     "tag": "Resume",    "tasks": ["Update LinkedIn headline and about", "Add projects and skills", "Connect with 5 DE professionals"]},
-        {"day": 76, "topic": "Practice Day",                        "tag": "Practice",  "tasks": ["Full mock interview from scratch", "All 3 rounds back to back"]},
-        {"day": 77, "topic": "Rest",                                "tag": "Rest",      "tasks": ["Rest and reflect on progress"]},
+    {"week": 11, "month": 3, "theme": "Mid-Level Behavioral Prep", "days": [
+        {"day": 71, "topic": "Impact & Leadership",                 "tag": "Behavioral","tasks": ["Write 3 STAR stories showing technical leadership", "Focus on 'I' not 'We'"]},
+        {"day": 72, "topic": "Conflict & Failure",                  "tag": "Behavioral","tasks": ["Write a story about a pipeline failure", "How did you fix it? What was the post-mortem?"]},
+        {"day": 73, "topic": "System Architecture deep dive",       "tag": "Behavioral","tasks": ["Prepare to whiteboard your current company's architecture", "Know every component's purpose"]},
+        {"day": 74, "topic": "Resume Polish (2 YOE)",               "tag": "Resume",    "tasks": ["Remove beginner projects", "Focus on scale, cost-savings, and business impact"]},
+        {"day": 75, "topic": "LinkedIn Strategy",                   "tag": "Resume",    "tasks": ["Update headline", "Turn on 'Open to Work' for recruiters", "Connect with Senior DEs"]},
+        {"day": 76, "topic": "Practice Day",                        "tag": "Practice",  "tasks": ["Record yourself answering behavioral questions", "Review pacing and clarity"]},
+        {"day": 77, "topic": "Rest",                                "tag": "Rest",      "tasks": ["Rest and reflect"]},
     ]},
-    {"week": 12, "month": 3, "theme": "Final Prep + Start Applying", "days": [
-        {"day": 78, "topic": "Final SQL Revision",                  "tag": "SQL",      "tasks": ["Top 20 SQL questions review", "Speed drill — solve fast"]},
-        {"day": 79, "topic": "Final Python Revision",               "tag": "Python",   "tasks": ["Top 10 Python patterns", "Write clean pipeline from memory"]},
-        {"day": 80, "topic": "Final System Design Revision",        "tag": "Design",   "tasks": ["Review all design patterns", "Practice explaining in 5 mins"]},
-        {"day": 81, "topic": "Start Applying",                      "tag": "Action",   "tasks": ["Apply to first 5 companies", "Track in a spreadsheet"]},
-        {"day": 82, "topic": "Apply + Practice",                    "tag": "Action",   "tasks": ["Apply to 5 more companies", "Do 1 hour of weak area review"]},
-        {"day": 83, "topic": "Apply + Mock",                        "tag": "Action",   "tasks": ["Apply to 5 more companies", "Final full mock interview"]},
-        {"day": 84, "topic": "Month 3 Complete 🎉",                 "tag": "Rest",     "tasks": ["Review your full journey", "Celebrate your progress!", "Keep applying and stay consistent"]},
+    {"week": 12, "month": 3, "theme": "Full Mocks & Apply", "days": [
+        {"day": 78, "topic": "Full System Design Mock",             "tag": "Mock",      "tasks": ["Design a Data Platform from scratch", "Cover ingestion, storage, processing, serving"]},
+        {"day": 79, "topic": "Full SQL/Python Mock",                "tag": "Mock",      "tasks": ["45-min hard problems", "Focus on edge cases and clean code"]},
+        {"day": 80, "topic": "Full Behavioral Mock",                "tag": "Mock",      "tasks": ["Practice with a peer if possible", "Focus on confidence and impact"]},
+        {"day": 81, "topic": "Start Applying (Targeted)",           "tag": "Action",    "tasks": ["Apply to 5 high-priority roles", "Tailor resume for each"]},
+        {"day": 82, "topic": "Apply + Reach Out",                   "tag": "Action",    "tasks": ["Message 3 recruiters directly on LinkedIn", "Apply to 5 more roles"]},
+        {"day": 83, "topic": "Review Weaknesses",                   "tag": "Review",    "tasks": ["Review notes from mocks", "Read 1 engineering blog (Uber/Netflix/Airbnb)"]},
+        {"day": 84, "topic": "Month 3 Complete 🎉",                 "tag": "Rest",      "tasks": ["Celebrate! You are ready for interviews."]},
     ]},
 
     # MONTH 4
-    {"week": 13, "month": 4, "theme": "Active Applications + Interview Practice", "days": [
-        {"day": 85, "topic": "Apply Daily Routine",                 "tag": "Action",      "tasks": ["Apply to 3-5 companies per day", "Customize cover letter lightly"]},
-        {"day": 86, "topic": "Company-Specific Prep",              "tag": "Research",    "tasks": ["Research interview process of top 3 targets", "Check Glassdoor + Leetcode company tags"]},
-        {"day": 87, "topic": "Mock + Apply",                       "tag": "Action",      "tasks": ["1 mock interview", "Apply to 5 companies"]},
-        {"day": 88, "topic": "Referrals",                          "tag": "Networking",  "tasks": ["Reach out to 5 connections for referrals", "Message ex-colleagues or LinkedIn contacts"]},
-        {"day": 89, "topic": "Weak Area Deep Dive",                "tag": "Review",      "tasks": ["Focus on your #1 weak topic", "Solve 10 targeted problems"]},
-        {"day": 90, "topic": "Practice Day",                       "tag": "Practice",    "tasks": ["Full mock interview", "Review and improve"]},
-        {"day": 91, "topic": "Rest",                               "tag": "Rest",        "tasks": ["Rest", "Trust your preparation"]},
+    {"week": 13, "month": 4, "theme": "Interviewing & Iterating", "days": [
+        {"day": 85, "topic": "Daily Applications",                  "tag": "Action",    "tasks": ["Apply to 5 roles", "Follow up on previous week's apps"]},
+        {"day": 86, "topic": "Company-Specific Prep",               "tag": "Research",  "tasks": ["Research engineering blogs of companies you're interviewing with"]},
+        {"day": 87, "topic": "Mock Interview",                      "tag": "Mock",      "tasks": ["Do 1 technical mock", "Focus on speed and communication"]},
+        {"day": 88, "topic": "Referrals & Networking",              "tag": "Networking","tasks": ["Ask former colleagues/managers for referrals", "Attend virtual DE meetup"]},
+        {"day": 89, "topic": "Deep Work on Weakness",               "tag": "Review",    "tasks": ["Spend 2 hours on your weakest topic", "Build a tiny PoC if needed"]},
+        {"day": 90, "topic": "Practice Day",                        "tag": "Practice",  "tasks": ["Solve 5 medium/hard SQL problems to stay sharp"]},
+        {"day": 91, "topic": "Rest",                                "tag": "Rest",      "tasks": ["Rest to avoid burnout"]},
     ]},
-    {"week": 14, "month": 4, "theme": "Interviews Begin", "days": [
-        {"day": 92, "topic": "Keep Applying",                      "tag": "Action",      "tasks": ["3-5 applications", "Follow up on pending ones"]},
-        {"day": 93, "topic": "Interview Preparation",              "tag": "Research",    "tasks": ["For each interview: research company deeply", "Prep 3 questions to ask them"]},
-        {"day": 94, "topic": "Post-Interview Review",              "tag": "Review",      "tasks": ["After each interview: write what went well", "Write what you'd do differently"]},
-        {"day": 95, "topic": "Keep the Momentum",                  "tag": "Action",      "tasks": ["Don't stop applying even if interviews are going well", "Pipeline of 3-5 active processes is healthy"]},
-        {"day": 96, "topic": "Negotiation Prep",                   "tag": "Negotiation", "tasks": ["Research market salaries on Levels.fyi / Glassdoor", "Prepare your number + justification"]},
-        {"day": 97, "topic": "Practice Day",                       "tag": "Practice",    "tasks": ["Mock interview or apply", "Stay sharp"]},
-        {"day": 98, "topic": "Done! 🎉",                           "tag": "Rest",        "tasks": ["Review your full journey", "You made it!", "Go get that offer!"]},
+    {"week": 14, "month": 4, "theme": "The Final Stretch", "days": [
+        {"day": 92, "topic": "Pipeline Management",                 "tag": "Action",    "tasks": ["Track application statuses", "Send thank-you notes post-interview"]},
+        {"day": 93, "topic": "System Design Refresh",               "tag": "Review",    "tasks": ["Review your own architecture diagrams", "Practice explaining them in 2 minutes"]},
+        {"day": 94, "topic": "Post-Interview Reviews",              "tag": "Review",    "tasks": ["Write down questions you were asked", "Research the ones you missed"]},
+        {"day": 95, "topic": "Keep Applying",                       "tag": "Action",    "tasks": ["Maintain momentum until you sign an offer"]},
+        {"day": 96, "topic": "Offer Negotiation",                   "tag": "Negotiation","tasks": ["Review Levels.fyi for current market rate", "Prepare your script for HR calls"]},
+        {"day": 97, "topic": "Final Mock",                          "tag": "Mock",      "tasks": ["One last behavioral/technical review", "Stay confident"]},
+        {"day": 98, "topic": "Done! 🎉",                            "tag": "Rest",      "tasks": ["You've put in the work.", "Go secure that mid/senior DE offer!"]},
     ]},
 ]
 
@@ -208,7 +205,8 @@ TAG_COLORS = {
     "Design":     "#BE123C",
     "Spark":      "#9A3412",
     "Cloud":      "#0F766E",
-    "DSA":        "#3730A3",
+    "Kafka":      "#0284C7",
+    "DevOps":     "#4338CA",
     "Behavioral": "#86198F",
     "Research":   "#166534",
     "Resume":     "#78350F",
@@ -218,10 +216,10 @@ TAG_COLORS = {
 }
 
 MONTH_TITLES = {
-    1: "📘 Month 1 — SQL & Python",
-    2: "📙 Month 2 — System Design & Modeling",
-    3: "📗 Month 3 — Mock Interviews & DSA",
-    4: "📕 Month 4 — Applications & Interviews",
+    1: "📘 Month 1 — Advanced SQL & Python Pipelines",
+    2: "📙 Month 2 — Big Data, Streaming & Lakes",
+    3: "📗 Month 3 — Orchestration, CI/CD & Design",
+    4: "📕 Month 4 — Interviews & Negotiation",
 }
 
 # ── SESSION STATE ─────────────────────────────────────────────────────────────
@@ -254,7 +252,7 @@ def toggle_theme():
 
 # ── SIDEBAR ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("## 🚀 DE Interview Prep")
+    st.markdown("## 🚀 DE Interview Prep (2 YOE)")
     
     current_theme = "dark"
     config_path = ".streamlit/config.toml"
@@ -267,20 +265,34 @@ with st.sidebar:
     if st.button(theme_label):
         toggle_theme()
         st.rerun()
-        
+
+    st.divider()
+
+    # ── DAILY ROUTINE FEATURE ──
+    st.markdown("### 📅 Daily Routine Blocker")
+    st.caption("Block your time to stay consistent!")
+    if "routine" not in st.session_state:
+        st.session_state.routine = pd.DataFrame([
+            {"Time": "07:00 - 08:30", "Activity": "Deep Study 🧠"},
+            {"Time": "09:00 - 17:30", "Activity": "Work 🏢"},
+            {"Time": "18:00 - 19:00", "Activity": "Gym / Rest 🏋️‍♂️"},
+            {"Time": "19:00 - 20:00", "Activity": "Light Review 📚"}
+        ])
+
+    edited_routine = st.data_editor(st.session_state.routine, num_rows="dynamic", hide_index=True)
+    st.session_state.routine = edited_routine
+    
+    st.divider()
 
     total = 98
     done  = len(st.session_state.completed)
-    pct   = int(done / total * 100)
+    pct   = int(done / total * 100) if total else 0
     st.progress(pct / 100)
     st.caption(f"**{done}/{total} days complete ({pct}%)**")
 
     st.divider()
-    selected_month = st.radio("Jump to month", [1, 2, 3, 4],
-                               format_func=lambda m: MONTH_TITLES[m])
+    selected_month = st.radio("Jump to month", [1, 2, 3, 4], format_func=lambda m: MONTH_TITLES[m])
 
-    st.divider()
-    st.info("💡 **Daily Rule**\nStudy 1–1.5 hrs *before* picking up your phone. Consistency beats intensity.")
 
 # ── MAIN ──────────────────────────────────────────────────────────────────────
 st.title(MONTH_TITLES[selected_month])
@@ -322,7 +334,6 @@ col3.metric("Completion %", f"{completion_pct}%")
 col4.metric("Current Streak", f"🔥 {streak} Days")
 
 with st.expander("Show Topic Breakdown Chart 📈"):
-    import pandas as pd
     topic_counts = {}
     topic_completed = {}
     for w in plan:
