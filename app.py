@@ -84,9 +84,11 @@ def save_custom_event(title: str, start_time: str, end_time: str, color: str):
             "end_time": end_time,
             "color": color
         }
-        requests.post(f"{SUPABASE_URL}/rest/v1/custom_events", headers=HEADERS, json=payload)
-    except Exception:
-        pass
+        res = requests.post(f"{SUPABASE_URL}/rest/v1/custom_events", headers=HEADERS, json=payload)
+        if res.status_code not in (200, 201, 204):
+            st.session_state.db_error = f"Calendar Event Save Error {res.status_code}: {res.text}"
+    except Exception as e:
+        st.session_state.db_error = f"Calendar Event Request Failed: {e}"
 
 # ── DATA (2 YOE PREMIUM CURRICULUM) ───────────────────────────────────────────
 plan = [
@@ -321,6 +323,10 @@ if "db_error" in st.session_state:
     st.info("Tip: If you're getting a 401/403 or empty results, make sure your Supabase table 'progress' exists and has Row Level Security (RLS) disabled, or has appropriate policies set up!")
     del st.session_state.db_error
 
+if "just_added_event" in st.session_state:
+    st.toast("🎉 Custom Event added to Calendar!")
+    del st.session_state.just_added_event
+
 tab_tracker, tab_schedule = st.tabs(["📚 98-Day Tracker", "📅 My Schedule & Calendar"])
 
 # ── TAB 1: 98-DAY TRACKER ──
@@ -453,7 +459,7 @@ with tab_schedule:
                     start_iso = datetime.combine(e_date, e_start).isoformat()
                     end_iso = datetime.combine(e_date, e_end).isoformat()
                     save_custom_event(e_title, start_iso, end_iso, e_color)
-                    st.success("Event added!")
+                    st.session_state.just_added_event = True
                     st.rerun()
 
         # Generate dummy events based on routines
@@ -497,9 +503,11 @@ with tab_schedule:
             "headerToolbar": {
                 "left": "today prev,next",
                 "center": "title",
-                "right": "dayGridMonth,timeGridWeek,timeGridDay",
+                "right": "timeGridWeek,timeGridDay,dayGridMonth",
             },
-            "initialView": "dayGridMonth",
+            "initialView": "timeGridWeek",
+            "slotMinTime": "06:00:00",
+            "slotMaxTime": "22:00:00",
         }
         
         st.caption(f"Loaded {len(calendar_events)} events into the calendar engine...")
