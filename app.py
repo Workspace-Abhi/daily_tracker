@@ -438,12 +438,14 @@ if page == "📅 My Schedule & Calendar":
             {"Time": "19:30 - 21:00", "Activity": "Cooking & Resting 🍳"},
             {"Time": "21:00 - 22:30", "Activity": "Evening Review 📚"}
         ])
-    if "routine_weekend" not in st.session_state:
-        st.session_state.routine_weekend = pd.DataFrame([
+    if "routine_weekend_v2" not in st.session_state:
+        st.session_state.routine_weekend_v2 = pd.DataFrame([
             {"Time": "08:00 - 12:00", "Activity": "Deep Study Block 1 🧠"},
             {"Time": "12:00 - 14:00", "Activity": "Lunch / Break 🥪"},
             {"Time": "14:00 - 16:00", "Activity": "Mock Interview / Review 🗣️"},
-            {"Time": "16:00 - 22:00", "Activity": "Free Time & Rest 🎉"}
+            {"Time": "16:00 - 19:30", "Activity": "Free Time & Rest 🎉"},
+            {"Time": "19:30 - 21:00", "Activity": "Cooking & Resting 🍳"},
+            {"Time": "21:00 - 22:30", "Activity": "Evening Free Time 🎮"}
         ])
         
     col1, col2 = st.columns(2)
@@ -452,7 +454,7 @@ if page == "📅 My Schedule & Calendar":
         st.session_state.routine_weekday_v2 = st.data_editor(st.session_state.routine_weekday_v2, num_rows="dynamic", hide_index=True, key="wd_editor_v2")
     with col2:
         st.subheader("🏖️ Weekend Routine")
-        st.session_state.routine_weekend = st.data_editor(st.session_state.routine_weekend, num_rows="dynamic", hide_index=True, key="we_editor")
+        st.session_state.routine_weekend_v2 = st.data_editor(st.session_state.routine_weekend_v2, num_rows="dynamic", hide_index=True, key="we_editor_v2")
         
     st.divider()
     st.subheader("🗓️ Calendar View")
@@ -517,6 +519,12 @@ if page == "📅 My Schedule & Calendar":
                     "start": f"{target_date}T14:00:00",
                     "end": f"{target_date}T16:00:00",
                     "color": "#7E22CE"
+                })
+                calendar_events.append({
+                    "title": "Cooking & Resting",
+                    "start": f"{target_date}T19:30:00",
+                    "end": f"{target_date}T21:00:00",
+                    "color": "#D97706"
                 })
             else:
                 calendar_events.append({
