@@ -64,6 +64,30 @@ def save_progress(day_num: int, completed: bool):
     except Exception as e:
         st.session_state.db_error = f"Save Request Failed: {e}"
 
+def load_custom_events() -> list:
+    try:
+        res = requests.get(
+            f"{SUPABASE_URL}/rest/v1/custom_events?select=title,start_time,end_time,color",
+            headers=HEADERS
+        )
+        if res.status_code == 200:
+            return res.json()
+    except Exception:
+        pass
+    return []
+
+def save_custom_event(title: str, start_time: str, end_time: str, color: str):
+    try:
+        payload = {
+            "title": title,
+            "start_time": start_time,
+            "end_time": end_time,
+            "color": color
+        }
+        requests.post(f"{SUPABASE_URL}/rest/v1/custom_events", headers=HEADERS, json=payload)
+    except Exception:
+        pass
+
 # ── DATA (2 YOE PREMIUM CURRICULUM) ───────────────────────────────────────────
 plan = [
     # MONTH 1
@@ -414,6 +438,24 @@ with tab_schedule:
     if not HAS_CALENDAR:
         st.warning("⚠️ The interactive calendar plugin is not installed. To see the beautiful full calendar view, please run this command in your terminal:\n\n`pip install streamlit-calendar`\n\nThen refresh this page!")
     else:
+        with st.expander("➕ Add Custom Calendar Block"):
+            with st.form("add_event_form"):
+                e_title = st.text_input("Event Title", placeholder="e.g. Mock Interview with friend")
+                c1, c2, c3 = st.columns(3)
+                e_date = c1.date_input("Date")
+                e_start = c2.time_input("Start Time", value=datetime.strptime("14:00", "%H:%M").time())
+                e_end = c3.time_input("End Time", value=datetime.strptime("15:00", "%H:%M").time())
+                e_color = st.color_picker("Event Color", "#7E22CE")
+                submitted = st.form_submit_button("Add to Calendar")
+                
+                if submitted and e_title:
+                    # Combine date and time to ISO strings
+                    start_iso = datetime.combine(e_date, e_start).isoformat()
+                    end_iso = datetime.combine(e_date, e_end).isoformat()
+                    save_custom_event(e_title, start_iso, end_iso, e_color)
+                    st.success("Event added!")
+                    st.rerun()
+
         # Generate dummy events based on routines
         calendar_events = []
         today = datetime.now().date()
@@ -440,6 +482,16 @@ with tab_schedule:
                     "end": f"{target_date}T08:30:00",
                     "color": "#15803D"
                 })
+
+        # Load custom events from Supabase
+        db_events = load_custom_events()
+        for ev in db_events:
+            calendar_events.append({
+                "title": ev.get("title"),
+                "start": ev.get("start_time"),
+                "end": ev.get("end_time"),
+                "color": ev.get("color", "#7E22CE")
+            })
         
         calendar_options = {
             "headerToolbar": {
