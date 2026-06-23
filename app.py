@@ -431,12 +431,12 @@ if page == "📅 My Schedule & Calendar":
     st.title("📅 My Study Schedule")
     st.markdown("Structure your week for maximum consistency. Edit the routines below to fit your real life!")
     
-    if "routine_weekday" not in st.session_state:
-        st.session_state.routine_weekday = pd.DataFrame([
-            {"Time": "07:00 - 08:30", "Activity": "Morning Study 🧠"},
-            {"Time": "09:00 - 17:30", "Activity": "Work 🏢"},
-            {"Time": "18:00 - 19:00", "Activity": "Gym / Rest 🏋️‍♂️"},
-            {"Time": "19:00 - 20:00", "Activity": "Light Review 📚"}
+    if "routine_weekday_v2" not in st.session_state:
+        st.session_state.routine_weekday_v2 = pd.DataFrame([
+            {"Time": "07:00 - 09:00", "Activity": "Morning Study 🧠"},
+            {"Time": "09:30 - 19:30", "Activity": "Office 🏢"},
+            {"Time": "19:30 - 21:00", "Activity": "Cooking & Resting 🍳"},
+            {"Time": "21:00 - 22:30", "Activity": "Evening Review 📚"}
         ])
     if "routine_weekend" not in st.session_state:
         st.session_state.routine_weekend = pd.DataFrame([
@@ -449,7 +449,7 @@ if page == "📅 My Schedule & Calendar":
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("💼 Weekday Routine")
-        st.session_state.routine_weekday = st.data_editor(st.session_state.routine_weekday, num_rows="dynamic", hide_index=True, key="wd_editor")
+        st.session_state.routine_weekday_v2 = st.data_editor(st.session_state.routine_weekday_v2, num_rows="dynamic", hide_index=True, key="wd_editor_v2")
     with col2:
         st.subheader("🏖️ Weekend Routine")
         st.session_state.routine_weekend = st.data_editor(st.session_state.routine_weekend, num_rows="dynamic", hide_index=True, key="we_editor")
@@ -522,7 +522,25 @@ if page == "📅 My Schedule & Calendar":
                 calendar_events.append({
                     "title": "Morning Study",
                     "start": f"{target_date}T07:00:00",
-                    "end": f"{target_date}T08:30:00",
+                    "end": f"{target_date}T09:00:00",
+                    "color": "#15803D"
+                })
+                calendar_events.append({
+                    "title": "Office",
+                    "start": f"{target_date}T09:30:00",
+                    "end": f"{target_date}T19:30:00",
+                    "color": "#4B5563"
+                })
+                calendar_events.append({
+                    "title": "Cooking & Resting",
+                    "start": f"{target_date}T19:30:00",
+                    "end": f"{target_date}T21:00:00",
+                    "color": "#D97706"
+                })
+                calendar_events.append({
+                    "title": "Evening Review",
+                    "start": f"{target_date}T21:00:00",
+                    "end": f"{target_date}T22:30:00",
                     "color": "#15803D"
                 })
 
