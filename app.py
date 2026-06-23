@@ -14,39 +14,50 @@ HEADERS = {
     "Prefer": "resolution=merge-duplicates"
 }
 
-def load_progress() -> set:
+def load_progress() -> tuple[set, dict]:
     try:
         res = requests.get(
-            f"{SUPABASE_URL}/rest/v1/progress?select=day_num",
+            f"{SUPABASE_URL}/rest/v1/progress?select=day_num,completed,notes",
             headers=HEADERS
         )
         if res.status_code == 200:
-            return set(row["day_num"] for row in res.json())
+            data = res.json()
+            completed = set(row["day_num"] for row in data if row.get("completed", True)) # default True for older rows
+            notes = {row["day_num"]: row.get("notes", "") for row in data if row.get("notes")}
+            return completed, notes
         else:
+            # Fallback if notes column doesn't exist yet
+            res2 = requests.get(f"{SUPABASE_URL}/rest/v1/progress?select=day_num", headers=HEADERS)
+            if res2.status_code == 200:
+                return set(row["day_num"] for row in res2.json()), {}
             st.session_state.db_error = f"GET Error {res.status_code}: {res.text}"
     except Exception as e:
         st.session_state.db_error = f"GET Request Failed: {e}"
-    return set()
+    return set(), {}
 
 def save_progress(day_num: int, completed: bool):
     try:
-        if completed:
-            res = requests.post(
-                f"{SUPABASE_URL}/rest/v1/progress",
-                headers=HEADERS,
-                json={"day_num": day_num, "completed": True}
-            )
-            if res.status_code not in (200, 201, 204):
+        payload = {"day_num": day_num, "completed": completed}
+        if "notes" in st.session_state and day_num in st.session_state.notes:
+            payload["notes"] = st.session_state.notes[day_num]
+            
+        res = requests.post(
+            f"{SUPABASE_URL}/rest/v1/progress",
+            headers=HEADERS,
+            json=payload
+        )
+        if res.status_code not in (200, 201, 204):
+            # Fallback: Try saving without notes if notes column is missing
+            if "notes" in payload:
+                del payload["notes"]
+                res2 = requests.post(f"{SUPABASE_URL}/rest/v1/progress", headers=HEADERS, json=payload)
+                if res2.status_code not in (200, 201, 204):
+                    st.session_state.db_error = f"POST Error {res2.status_code}: {res2.text}"
+            else:
                 st.session_state.db_error = f"POST Error {res.status_code}: {res.text}"
-        else:
-            res = requests.delete(
-                f"{SUPABASE_URL}/rest/v1/progress?day_num=eq.{day_num}",
-                headers=HEADERS
-            )
-            if res.status_code not in (200, 201, 204):
-                st.session_state.db_error = f"DELETE Error {res.status_code}: {res.text}"
     except Exception as e:
         st.session_state.db_error = f"Save Request Failed: {e}"
+
 
 
 # ── DATA ──────────────────────────────────────────────────────────────────────
@@ -216,7 +227,9 @@ MONTH_TITLES = {
 # ── SESSION STATE ─────────────────────────────────────────────────────────────
 
 if "completed" not in st.session_state:
-    st.session_state.completed = load_progress()
+    completed_data, notes_data = load_progress()
+    st.session_state.completed = completed_data
+    st.session_state.notes = notes_data
 
 def toggle(day_num):
     if day_num in st.session_state.completed:
@@ -285,6 +298,49 @@ if "db_error" in st.session_state:
     st.info("Tip: If you're getting a 401/403 or empty results, make sure your Supabase table 'progress' exists and has Row Level Security (RLS) disabled, or has appropriate policies set up!")
     del st.session_state.db_error
 
+# ── ANALYTICS DASHBOARD ───────────────────────────────────────────────────────
+st.header("📊 Your Progress Dashboard")
+
+total_days = 98
+completed_count = len(st.session_state.completed)
+completion_pct = int((completed_count / total_days) * 100) if total_days else 0
+
+# Calculate Streak
+streak = 0
+if st.session_state.completed:
+    max_day = max(st.session_state.completed)
+    for d in range(max_day, 0, -1):
+        if d in st.session_state.completed:
+            streak += 1
+        else:
+            break
+
+col1, col2, col3, col4 = st.columns(4)
+col1.metric("Total Completed", f"{completed_count} / {total_days}")
+col2.metric("Remaining", total_days - completed_count)
+col3.metric("Completion %", f"{completion_pct}%")
+col4.metric("Current Streak", f"🔥 {streak} Days")
+
+with st.expander("Show Topic Breakdown Chart 📈"):
+    import pandas as pd
+    topic_counts = {}
+    topic_completed = {}
+    for w in plan:
+        for d in w["days"]:
+            t = d["tag"]
+            topic_counts[t] = topic_counts.get(t, 0) + 1
+            if d["day"] in st.session_state.completed:
+                topic_completed[t] = topic_completed.get(t, 0) + 1
+                
+    df = pd.DataFrame({
+        "Topic": list(topic_counts.keys()),
+        "Completed": [topic_completed.get(t, 0) for t in topic_counts.keys()],
+        "Total": [topic_counts.get(t, 0) for t in topic_counts.keys()]
+    })
+    st.bar_chart(df.set_index("Topic")["Completed"])
+
+st.divider()
+
 weeks_in_month = [w for w in plan if w["month"] == selected_month]
 
 for week in weeks_in_month:
@@ -310,5 +366,14 @@ for week in weeks_in_month:
                     st.session_state.just_completed = dn
                 toggle(dn)
                 st.rerun()
+                
+            st.markdown("---")
+            # Interactive Notes
+            current_note = st.session_state.notes.get(dn, "")
+            new_note = st.text_area("📝 Personal Notes / Links", value=current_note, key=f"note_{dn}", placeholder="Paste LeetCode links or personal notes here...")
+            if st.button("Save Note 💾", key=f"save_note_{dn}"):
+                st.session_state.notes[dn] = new_note
+                save_progress(dn, is_done) # Upserts the progress and new note
+                st.toast(f"Notes saved for Day {dn}!")
 
     st.divider()
