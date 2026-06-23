@@ -68,7 +68,7 @@ def save_progress(day_num: int, completed: bool):
 def load_custom_events() -> list:
     try:
         res = requests.get(
-            f"{SUPABASE_URL}/rest/v1/custom_events?select=title,start_time,end_time,color",
+            f"{SUPABASE_URL}/rest/v1/custom_events?select=id,title,start_time,end_time,color",
             headers=HEADERS
         )
         if res.status_code == 200:
@@ -91,6 +91,14 @@ def save_custom_event(title: str, start_time: str, end_time: str, color: str):
             st.session_state.db_error = f"Calendar Event Save Error {res.status_code}: {res.text}"
     except Exception as e:
         st.session_state.db_error = f"Calendar Event Request Failed: {e}"
+
+def delete_custom_event(event_id: int):
+    try:
+        res = requests.delete(f"{SUPABASE_URL}/rest/v1/custom_events?id=eq.{event_id}", headers=HEADERS)
+        if res.status_code not in (200, 204):
+            st.session_state.db_error = f"Calendar Event Delete Error {res.status_code}: {res.text}"
+    except Exception as e:
+        st.session_state.db_error = f"Calendar Event Delete Request Failed: {e}"
 
 # ── DATA (2 YOE PREMIUM CURRICULUM) ───────────────────────────────────────────
 plan = [
@@ -333,6 +341,10 @@ if "just_added_event" in st.session_state:
     st.toast("🎉 Custom Event added to Calendar!")
     del st.session_state.just_added_event
 
+if "just_deleted_event" in st.session_state:
+    st.toast("🗑️ Custom Event deleted!")
+    del st.session_state.just_deleted_event
+
 # ── PAGE 1: 98-DAY TRACKER ──
 if page == "📚 98-Day Tracker":
     st.title(MONTH_TITLES[selected_month])
@@ -448,23 +460,44 @@ if page == "📅 My Schedule & Calendar":
     if not HAS_CALENDAR:
         st.warning("⚠️ The interactive calendar plugin is not installed. To see the beautiful full calendar view, please run this command in your terminal:\n\n`pip install streamlit-calendar`\n\nThen refresh this page!")
     else:
-        with st.expander("➕ Add Custom Calendar Block"):
-            with st.form("add_event_form"):
-                e_title = st.text_input("Event Title", placeholder="e.g. Mock Interview with friend")
-                c1, c2, c3 = st.columns(3)
-                e_date = c1.date_input("Date")
-                e_start = c2.time_input("Start Time", value=datetime.strptime("14:00", "%H:%M").time())
-                e_end = c3.time_input("End Time", value=datetime.strptime("15:00", "%H:%M").time())
-                e_color = st.color_picker("Event Color", "#7E22CE")
-                submitted = st.form_submit_button("Add to Calendar")
-                
-                if submitted and e_title:
-                    # Combine date and time to ISO strings
-                    start_iso = datetime.combine(e_date, e_start).isoformat()
-                    end_iso = datetime.combine(e_date, e_end).isoformat()
-                    save_custom_event(e_title, start_iso, end_iso, e_color)
-                    st.session_state.just_added_event = True
-                    st.rerun()
+        # Load custom events from Supabase early so we can delete them
+        db_events = load_custom_events()
+
+        c1, c2 = st.columns(2)
+        with c1:
+            with st.expander("➕ Add Custom Calendar Block"):
+                with st.form("add_event_form"):
+                    e_title = st.text_input("Event Title", placeholder="e.g. Mock Interview with friend")
+                    ec1, ec2, ec3 = st.columns(3)
+                    e_date = ec1.date_input("Date")
+                    e_start = ec2.time_input("Start Time", value=datetime.strptime("14:00", "%H:%M").time())
+                    e_end = ec3.time_input("End Time", value=datetime.strptime("15:00", "%H:%M").time())
+                    e_color = st.color_picker("Event Color", "#7E22CE")
+                    submitted = st.form_submit_button("Add to Calendar")
+                    
+                    if submitted and e_title:
+                        # Combine date and time to ISO strings
+                        start_iso = datetime.combine(e_date, e_start).isoformat()
+                        end_iso = datetime.combine(e_date, e_end).isoformat()
+                        save_custom_event(e_title, start_iso, end_iso, e_color)
+                        st.session_state.just_added_event = True
+                        st.rerun()
+
+        with c2:
+            with st.expander("🗑️ Delete Calendar Block"):
+                with st.form("delete_event_form"):
+                    if not db_events:
+                        st.info("No custom events to delete.")
+                        st.form_submit_button("Delete Event", disabled=True)
+                    else:
+                        ev_options = {ev["id"]: f"{ev['title']} ({str(ev['start_time'])[:10]})" for ev in db_events}
+                        selected_id = st.selectbox("Select Event to Delete", options=list(ev_options.keys()), format_func=lambda x: ev_options[x])
+                        del_submitted = st.form_submit_button("Delete Event")
+                        
+                        if del_submitted and selected_id:
+                            delete_custom_event(selected_id)
+                            st.session_state.just_deleted_event = True
+                            st.rerun()
 
         # Generate dummy events based on routines
         calendar_events = []
@@ -493,8 +526,7 @@ if page == "📅 My Schedule & Calendar":
                     "color": "#15803D"
                 })
 
-        # Load custom events from Supabase
-        db_events = load_custom_events()
+        # Add custom events from Supabase
         for ev in db_events:
             calendar_events.append({
                 "title": ev.get("title"),
