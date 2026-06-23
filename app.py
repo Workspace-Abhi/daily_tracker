@@ -226,7 +226,7 @@ MONTH_TITLES = {
 
 # ── SESSION STATE ─────────────────────────────────────────────────────────────
 
-if "completed" not in st.session_state:
+if "completed" not in st.session_state or "notes" not in st.session_state:
     completed_data, notes_data = load_progress()
     st.session_state.completed = completed_data
     st.session_state.notes = notes_data
