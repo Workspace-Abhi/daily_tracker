@@ -542,8 +542,6 @@ if page == "📅 My Schedule & Calendar":
                 "right": "timeGridWeek,timeGridDay,dayGridMonth",
             },
             "initialView": "timeGridWeek",
-            "slotMinTime": "06:00:00",
-            "slotMaxTime": "22:00:00",
         }
         
         st.caption(f"Loaded {len(calendar_events)} events into the calendar engine...")
