@@ -542,6 +542,7 @@ if page == "📅 My Schedule & Calendar":
                 "right": "timeGridWeek,timeGridDay,dayGridMonth",
             },
             "initialView": "timeGridWeek",
+            "height": 650,
         }
         
         st.caption(f"Loaded {len(calendar_events)} events into the calendar engine...")
