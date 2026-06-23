@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+import os
 
 st.set_page_config(page_title="DE Interview Prep Plan", page_icon="🚀", layout="centered")
 
@@ -212,9 +213,36 @@ def toggle(day_num):
         st.session_state.completed.add(day_num)
         save_progress(day_num, completed=True)
 
+def toggle_theme():
+    os.makedirs(".streamlit", exist_ok=True)
+    config_path = ".streamlit/config.toml"
+    current_theme = "dark"
+    if os.path.exists(config_path):
+        with open(config_path, "r") as f:
+            if 'base="light"' in f.read().replace(" ", ""):
+                current_theme = "light"
+    
+    new_theme = "dark" if current_theme == "light" else "light"
+    with open(config_path, "w") as f:
+        f.write(f'[theme]\nbase="{new_theme}"\n')
+
 # ── SIDEBAR ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## 🚀 DE Interview Prep")
+    
+    current_theme = "dark"
+    config_path = ".streamlit/config.toml"
+    if os.path.exists(config_path):
+        with open(config_path, "r") as f:
+            if 'base="light"' in f.read().replace(" ", ""):
+                current_theme = "light"
+                
+    theme_label = "🌞 Switch to Day Mode" if current_theme == "dark" else "🌙 Switch to Night Mode"
+    if st.button(theme_label):
+        toggle_theme()
+        st.rerun()
+        
+
     total = 98
     done  = len(st.session_state.completed)
     pct   = int(done / total * 100)
